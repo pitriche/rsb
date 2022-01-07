@@ -3,6 +3,12 @@
 
 # include <iostream>	/* logic_error */
 # include <stack>		/* stack */
+# include <array>		/* array */
+# include <vector>		/* vector */
+
+/* ########################################################################## */
+/* #####################		Math utility			##################### */
+/* ########################################################################## */
 
 template <typename T>
 T	square(T scalar) { return (scalar * scalar); }
@@ -54,6 +60,8 @@ T	sqrt(T scalar)
 	return (res);
 }
 
+/* ########################################################################## */
+/* #####################			Binary				##################### */
 /* ########################################################################## */
 
 /* T is for integers, undefined behavior on other data types */
@@ -112,11 +120,14 @@ template <typename T>
 T	gray_code(T n) { return (n ^ (n >> 1)); }
 
 /* ########################################################################## */
+/* #####################			Expressions			##################### */
+/* ########################################################################## */
 
 /* what the stack function pop SHOULD be */
-bool	pop(std::stack<bool> &stk)
+template <typename T>
+T	pop(std::stack<T> &stk)
 {
-	bool	tmp;
+	T	tmp;
 
 	if (stk.empty())
 		throw std::logic_error("Invalid expression");
@@ -131,7 +142,7 @@ template <typename T>
 bool	bit(T number, unsigned bit)
 { return ((number >> bit) & 0x1); }
 
-bool	eval_formula(std::string str)
+bool	eval_formula(const std::string &str)
 {
 	std::stack<bool>	stk;
 
@@ -153,14 +164,13 @@ bool	eval_formula(std::string str)
 	return (stk.top());
 }
 
-void	print_truth_table(std::string str)
+/* initial parsing phase */
+unsigned	vars_in_eval(std::string &str)
 {
-	std::stack<bool>	stk;
-	unsigned			variables;
 	unsigned			tmp;
+	unsigned			variables;
 
 	variables = 0;
-	/* initial parsing phase */
 	for (char &c : str)
 		if (isalpha(c))
 		{
@@ -176,6 +186,15 @@ void	print_truth_table(std::string str)
 			throw std::logic_error("Invalid character");
 	if (variables == 0)
 		throw std::logic_error("Invalid expression");
+	return (variables);
+}
+
+void	print_truth_table(std::string str)
+{
+	std::stack<bool>	stk;
+	unsigned			variables;
+
+	variables = vars_in_eval(str);
 
 	/* header print */
 	std::cout << "| ";
@@ -185,9 +204,8 @@ void	print_truth_table(std::string str)
 	for (unsigned c = 0; c < variables + 1; ++c)
 		std::cout << "---|";
 	std::cout << std::endl;
-	
 
-	for (unsigned bits = 0; bits < power(2, variables); ++bits)
+	for (unsigned bits = 0; bits < power(2U, variables); ++bits)
 	{
 		/* input bits print */
 		std::cout << "| ";
@@ -200,7 +218,6 @@ void	print_truth_table(std::string str)
 					/* '@' is before 'A' to make c - '@' start by 1 */
 					stk.push(bit(bits, variables - (c - '@')));
 					break;
-
 				case '!' : stk.push(!pop(stk)); break;
 				case '&' : stk.push(pop(stk) & pop(stk)); break;
 				case '|' : stk.push(pop(stk) | pop(stk)); break;
@@ -209,15 +226,185 @@ void	print_truth_table(std::string str)
 				case '>' : stk.push(!pop(stk) | pop(stk)); break;
 			}
 		std::cout << pop(stk) << " |" << std::endl;
-
 		while (stk.size() > 0)
 			stk.pop();
 	}
+}
 
+bool	sat(std::string str)
+{
+	std::stack<bool>	stk;
+	unsigned			variables;
+
+	variables = vars_in_eval(str);
+
+	for (unsigned bits = 0; bits < power(2U, variables); ++bits)
+	{
+		for (char c : str)
+			switch (c)
+			{
+				case 'A' ... 'Z' :
+					/* '@' is before 'A' to make c - '@' start by 1 */
+					stk.push(bit(bits, variables - (c - '@')));
+					break;
+				case '!' : stk.push(!pop(stk)); break;
+				case '&' : stk.push(pop(stk) & pop(stk)); break;
+				case '|' : stk.push(pop(stk) | pop(stk)); break;
+				case '=' : stk.push(pop(stk) == pop(stk)); break;
+				case '^' : stk.push(pop(stk) ^ pop(stk)); break;
+				case '>' : stk.push(!pop(stk) | pop(stk)); break;
+			}
+		if (pop(stk))
+			return (true);
+		while (stk.size() > 0)
+			stk.pop();
+	}
+	return (false);
+}
+
+/* ########################################################################## */
+/* #####################		Set Expression			##################### */
+/* ########################################################################## */
+
+inline bool			set_contains(const std::vector<int> &set, int i)
+{
+	for (int nb : set)
+		if (nb == i)
+			return (true);
+	return (false);
+}
+
+/* remove duplicates */
+std::vector<int>	&set_clean(std::vector<int> &set)
+{
+	std::vector<int>	unique;
+
+	for (unsigned i = 0; i < set.size(); ++i)
+		if (!set_contains(unique, set[i]))
+			unique.push_back(set[i]);
+	set = unique;
+	return (set);
 }
 
 /* ########################################################################## */
 
+/* set union */
+std::vector<int>	set_or(std::vector<int> set1,
+	const std::vector<int> &set2)
+{
+	set1.insert(set1.end(), set2.begin(), set2.end());
+	return (set_clean(set1));
+}
 
+/* set intersection */
+std::vector<int>	set_and(const std::vector<int> &set1,
+	const std::vector<int> &set2)
+{
+	std::vector<int>	res;
+
+	for (int nb : set1)
+		if (set_contains(set2, nb))
+			res.push_back(nb);
+	return (set_clean(res));
+}
+
+/* symetric difference, exclusive disjunction */
+std::vector<int>	set_xor(const std::vector<int> &set1,
+	const std::vector<int> &set2)
+{
+	std::vector<int>	res;
+
+	for (int nb : set1)
+		if (!set_contains(set2, nb))
+			res.push_back(nb);
+	for (int nb : set2)
+		if (!set_contains(set1, nb))
+			res.push_back(nb);
+	return (set_clean(res));
+}
+
+/* NOR = XOR with superset */
+std::vector<int>	set_not(const std::vector<int> &set,
+	const std::vector<int> &superset)
+{ return (set_xor(set, superset)); }
+
+/* logical equivalence */
+std::vector<int>	set_eq(const std::vector<int> &set1,
+	const std::vector<int> &set2, const std::vector<int> &superset)
+{
+	std::vector<int>	not12;
+
+	not12 = set_and(set_not(set1, superset), set_not(set2, superset));
+	return (set_or(set_and(set1, set2), not12));
+}
+
+/* material condition */
+std::vector<int>	set_imply(const std::vector<int> &set1,
+	const std::vector<int> &set2, const std::vector<int> &superset)
+{ return (set_or(set_not(set1, superset), set2)); }
+
+/* ########################################################################## */
+
+std::vector<int>	eval_set(std::string str,
+	std::vector<std::vector<int>> sets)
+{
+	std::stack<std::vector<int>>	stk;
+	std::vector<int>				superset;
+	unsigned						set_nb;
+
+	/* check for str/sets match and get superset */
+	set_nb = vars_in_eval(str);
+	if (set_nb > sets.size())
+		throw std::logic_error("Mismatched set and expression");
+	for (unsigned int i = 0; i < set_nb; ++i)
+		superset = set_or(superset, sets[i]);
+	for (char c : str)
+		switch (c)
+		{
+			case 'A' ... 'Z' : stk.push(sets[c - 'A']);	break;
+			case '!' : stk.push(set_not(pop(stk), superset)); break;
+			case '&' : stk.push(set_and(pop(stk), pop(stk))); break;
+			case '|' : stk.push(set_or(pop(stk), pop(stk))); break;
+			case '=' : stk.push(set_eq(pop(stk), pop(stk), superset)); break;
+			case '^' : stk.push(set_xor(pop(stk), pop(stk))); break;
+			case '>' : stk.push(set_imply(pop(stk), pop(stk), superset)); break;
+		}
+	return (stk.top());
+}
+
+/* ########################################################################## */
+/* #####################			Misc				##################### */
+/* ########################################################################## */
+
+std::vector<std::vector<int>>	powerset(const std::vector<int> &set)
+{
+	std::vector<std::vector<int>>	res;
+
+	res.resize(power(2, set.size()));
+	for (unsigned bits = 0; bits < res.size(); ++bits)
+		for (unsigned i = 0; i < set.size(); ++i)
+			if (bit(bits, i))
+				res[bits].push_back(set[i]);
+	return (res);
+}
+
+double							map(unsigned short x, unsigned short y)
+{
+	unsigned long	res;
+
+	res = (unsigned)x | ((unsigned)y << 16);
+	return (*(double *)(&res));
+}
+
+std::array<unsigned short, 2>	reverse_map(double n)
+{
+	std::array<unsigned short, 2>	res;
+	unsigned long					decode;
+
+	decode = *(unsigned long *)(&n);
+	res[0] = decode & 0xffffU;
+	res[1] = (decode >> 16) & 0xffffU;
+	return (res);
+}
 
 #endif

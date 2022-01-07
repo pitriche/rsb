@@ -9,8 +9,8 @@ int	main()
 	std::cout << std::endl << "AB|" << std::endl;
 	print_truth_table("AB|");
 
-	std::cout << std::endl << "ABCD||=" << std::endl;
-	print_truth_table("ABCD||=");
+	std::cout << std::endl << "AB|CD|=" << std::endl;
+	print_truth_table("AB|CD|=");
 
 	std::cout << std::endl << "aBcD|&=" << std::endl;
 	print_truth_table("aBcD|&=");
