@@ -164,7 +164,7 @@ bool	eval_formula(const std::string &str)
 	return (stk.top());
 }
 
-/* initial parsing phase */
+/* initial parsing phase, caps all letters */
 unsigned	vars_in_eval(std::string &str)
 {
 	unsigned			tmp;
@@ -261,6 +261,174 @@ bool	sat(std::string str)
 	}
 	return (false);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* push not operators to the basic operands */
+
+
+
+
+
+/* ########################################################################## */
+/* #####################	Expressions refining		##################### */
+/* ########################################################################## */
+
+void		push_operation(std::string &str, const std::string &operand_a,
+	const std::string &operand_b, char operation)
+{
+	switch (operation)
+	{
+		case '&' : case '|' :
+			str += operation;
+			str += operand_a;
+			str += operand_b;
+			break ;
+
+		case '=' :	/* AB=  <=>  A!B!&AB&| */
+			str.push_back('|');
+			str.push_back('&');
+			str += operand_b;
+			str += operand_a;
+			str.push_back('&');
+			str.push_back('!');
+			str += operand_b;
+			str.push_back('!');
+			str += operand_a;
+			break ;
+		case '^' :	/* AB^  <=>  AB=! */
+			str.push_back('!');
+			push_operation(str, operand_a, operand_b, '=');
+			break ;
+
+		case '>' :	/* AB>  <=>  A!B| */
+			str.push_back('|');
+			str += operand_b;
+			str.push_back('!');
+			str += operand_a;
+			break ;
+		
+	}
+}
+
+/* /!\ WORKS ONLY WITH CORRECT, ALL CAPS INPUT /!\	*/
+std::string	extract_operand(const std::string &str, unsigned &cursor)
+{
+	std::string	res;
+	std::string	operand_a;
+	std::string	operand_b;
+	char		operation;
+
+	if (cursor >= str.size())	/* overflow protection */
+		throw std::logic_error("Invalid expression");
+
+	std::cout << "Called str ["<<str<<"] curs> " << cursor << std::endl;
+	
+	operation = str[cursor];
+	switch (operation)
+	{
+		case 'A' ... 'Z' :
+			res.push_back(str[cursor--]);
+			break ;
+
+		case '!' :
+			res.push_back(str[cursor--]);
+			res += extract_operand(str, cursor);
+			break ;
+
+		default :	/* & | ^ = > */
+			--cursor;
+			std::cout << "2 calls left !! cursor:" << cursor << std::endl;
+			operand_a = extract_operand(str, cursor);
+			std::cout << "1 call left !!  cursor:" << cursor << std::endl;
+			operand_b = extract_operand(str, cursor);
+			push_operation(res, operand_a, operand_b, operation);
+			// res += operand_a;
+			// res += operand_b;
+			break ;
+	}
+
+	/* removes stacked not (!) operators as soon as they appear */
+	if (res.size() >= 2 && res[0] == '!' && res[1] == '!')
+		res.erase(0, 2);
+	return (res);
+}
+
+std::string	negation_normal_form(std::string str)
+{
+	unsigned	cursor;
+
+	vars_in_eval(str);	/* caps all letters */
+	cursor = str.size() - 1; 
+	std::cout << extract_operand(str, cursor) << std::endl;
+	return (std::string(str));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* ########################################################################## */
 /* #####################		Set Expression			##################### */
