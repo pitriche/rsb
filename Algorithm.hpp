@@ -303,94 +303,122 @@ bool	sat(std::string str)
 /* #####################	Expressions refining		##################### */
 /* ########################################################################## */
 
-void		push_operation(std::string &str, const std::string &operand_a,
-	const std::string &operand_b, char operation)
+/* recursively erase an operand down to letters */
+void	skip_operand(std::string &str)
 {
-	switch (operation)
+	while (str.size() && str[0] == '!')	/* skip all Not */
+		str.erase(0, 1);
+	if (str[0] < 'A' && str[0] > 'Z')	/* skip operation */
 	{
-		case '&' : case '|' :
-			str += operation;
-			str += operand_a;
-			str += operand_b;
-			break ;
-
-		case '=' :	/* AB=  <=>  A!B!&AB&| */
-			str.push_back('|');
-			str.push_back('&');
-			str += operand_b;
-			str += operand_a;
-			str.push_back('&');
-			str.push_back('!');
-			str += operand_b;
-			str.push_back('!');
-			str += operand_a;
-			break ;
-		case '^' :	/* AB^  <=>  AB=! */
-			str.push_back('!');
-			push_operation(str, operand_a, operand_b, '=');
-			break ;
-
-		case '>' :	/* AB>  <=>  A!B| */
-			str.push_back('|');
-			str += operand_b;
-			str.push_back('!');
-			str += operand_a;
-			break ;
-		
+		str.erase(0, 1);	/* skip operation */
+		skip_operand(str);	/* skip operand A */
+		skip_operand(str);	/* skip operand B */
 	}
+	if (!str.size())
+		throw std::logic_error("Invalid expression");
+	str.erase(0, 1);	/* skip letter */
 }
 
-/* /!\ WORKS ONLY WITH CORRECT, ALL CAPS INPUT /!\	*/
-std::string	extract_operand(const std::string &str, unsigned &cursor)
+
+enum	e_operation
 {
-	std::string	res;
-	std::string	operand_a;
-	std::string	operand_b;
-	char		operation;
+	None,	/* to facilitate error detection */
+	And,
+	Or,
+	Xor,
+	Equal,
+	Imply,
+	Letter
+};
 
-	if (cursor >= str.size())	/* overflow protection */
-		throw std::logic_error("Invalid expression");
+struct	Oper
+{
+	e_operation	op;
+	bool		neg;	/* not, because it's a keyword... */
 
-	std::cout << "Called str ["<<str<<"] curs> " << cursor << std::endl;
-	
-	operation = str[cursor];
-	switch (operation)
+	char		letter;
+	Oper		*a;
+	Oper		*b;
+
+/* -------------------------------------------------------------------------- */
+
+	Oper(std::string str) : op(None), neg(false), a(0), b(0)
 	{
-		case 'A' ... 'Z' :
-			res.push_back(str[cursor--]);
-			break ;
-
-		case '!' :
-			res.push_back(str[cursor--]);
-			res += extract_operand(str, cursor);
-			break ;
-
-		default :	/* & | ^ = > */
-			--cursor;
-			std::cout << "2 calls left !! cursor:" << cursor << std::endl;
-			operand_a = extract_operand(str, cursor);
-			std::cout << "1 call left !!  cursor:" << cursor << std::endl;
-			operand_b = extract_operand(str, cursor);
-			push_operation(res, operand_a, operand_b, operation);
-			// res += operand_a;
-			// res += operand_b;
-			break ;
+		// std::cout << "New operator on ["<<str<<"]\n";
+		while (str.size() && str[0] == '!')
+		{
+			neg ^= 1;
+			str.erase(0, 1);
+		}
+		if (!str.size())
+			throw std::logic_error("Invalid expression");
+		switch (str[0])
+		{
+			case '&' : op = And; break;
+			case '|' : op = Or; break;
+			case '^' : op = Xor; break;
+			case '=' : op = Equal; break;
+			case '>' : op = Imply; break;
+			default :
+				op = Letter;
+				letter = str[0];
+				break;
+		}
+		if (op != Letter)
+		{
+			str.erase(0, 1);
+			a = new Oper(str);
+			skip_operand(str);
+			b = new Oper(str);
+		}
 	}
 
-	/* removes stacked not (!) operators as soon as they appear */
-	if (res.size() >= 2 && res[0] == '!' && res[1] == '!')
-		res.erase(0, 2);
-	return (res);
+	~Oper(void)
+	{
+		if (a)
+			delete a;
+		if (b)
+			delete b;
+	}
+};
+
+
+void	print_Node(const Oper &node, unsigned tab)
+{
+	for (unsigned i = 0; i < tab; ++i)
+		std::cout << ' ';
+
+	if (node.op == Letter)
+		std::cout << node.letter << (node.neg ? "!" : "") << '\n';
+	else
+	{
+		if (node.op == And) std::cout << '&';
+		if (node.op == Or) std::cout << '|';
+		if (node.op == Xor) std::cout << '^';
+		if (node.op == Equal) std::cout << '=';
+		if (node.op == Imply) std::cout << '>';
+		std::cout << '\n';
+		print_Node(*node.a, tab + 2);
+		print_Node(*node.b, tab + 2);
+	}
 }
 
 std::string	negation_normal_form(std::string str)
 {
-	unsigned	cursor;
+	std::string	res;
+	Oper		*expr;
 
 	vars_in_eval(str);	/* caps all letters */
-	cursor = str.size() - 1; 
-	std::cout << extract_operand(str, cursor) << std::endl;
-	return (std::string(str));
+	res = str;
+	str.clear();
+	for (unsigned i = res.size(); i > 0; --i)	/* invert the string */
+		str.push_back(res[i - 1]);
+
+	expr = new Oper(str);	/* construct tree */
+	std::cout << "Tree :\n";
+	print_Node(*expr, 0);
+
+	return (res);
 }
 
 
