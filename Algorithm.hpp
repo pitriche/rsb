@@ -303,23 +303,6 @@ bool	sat(std::string str)
 /* #####################	Expressions refining		##################### */
 /* ########################################################################## */
 
-/* recursively erase an operand down to letters */
-void	skip_operand(std::string &str)
-{
-	while (str.size() && str[0] == '!')	/* skip all Not */
-		str.erase(0, 1);
-	if (str[0] < 'A' && str[0] > 'Z')	/* skip operation */
-	{
-		str.erase(0, 1);	/* skip operation */
-		skip_operand(str);	/* skip operand A */
-		skip_operand(str);	/* skip operand B */
-	}
-	if (!str.size())
-		throw std::logic_error("Invalid expression");
-	str.erase(0, 1);	/* skip letter */
-}
-
-
 enum	e_operation
 {
 	None,	/* to facilitate error detection */
@@ -342,7 +325,7 @@ struct	Oper
 
 /* -------------------------------------------------------------------------- */
 
-	Oper(std::string str) : op(None), neg(false), a(0), b(0)
+	Oper(std::string &str) : op(None), neg(false), a(0), b(0)
 	{
 		// std::cout << "New operator on ["<<str<<"]\n";
 		while (str.size() && str[0] == '!')
@@ -354,31 +337,157 @@ struct	Oper
 			throw std::logic_error("Invalid expression");
 		switch (str[0])
 		{
-			case '&' : op = And; break;
-			case '|' : op = Or; break;
-			case '^' : op = Xor; break;
-			case '=' : op = Equal; break;
-			case '>' : op = Imply; break;
+			case '&' : this->op = And; break;
+			case '|' : this->op = Or; break;
+			case '^' : this->op = Xor; break;
+			case '=' : this->op = Equal; break;
+			case '>' : this->op = Imply; break;
 			default :
-				op = Letter;
-				letter = str[0];
+				this->op = Letter;
+				this->letter = str[0];
 				break;
 		}
-		if (op != Letter)
+		str.erase(0, 1);
+		if (this->op != Letter)
 		{
-			str.erase(0, 1);
 			a = new Oper(str);
-			skip_operand(str);
 			b = new Oper(str);
 		}
+	}
+
+	Oper(const Oper &src) : op(src.op), neg(src.neg), letter(src.letter)
+	{
+		if (src.a)
+			this->a = new Oper(*src.a);
+		if (src.b)
+			this->b = new Oper(*src.b);
 	}
 
 	~Oper(void)
 	{
 		if (a)
-			delete a;
+			delete this->a;
 		if (b)
-			delete b;
+			delete this->b;
+	}
+
+	/* shift all operators to And and OR */
+	void	normal_form(void)
+	{
+		Oper	*tmp_a;
+		Oper	*tmp_b;
+		std::string	str;
+
+		if (this->op == Letter)
+			return ;
+		if (this->op == And || this->op == Or)
+		{
+			this->a->normal_form();
+			this->b->normal_form();
+			return ;
+		}
+		if (this->op == Imply) /* AB> <=> A!B^ */
+		{
+			this->op = Or;
+			this->b->neg ^= 1;
+			this->a->normal_form();
+			this->b->normal_form();
+			return ;
+		}
+
+		tmp_a = new Oper(*this->a);
+		tmp_b = new Oper(*this->b);
+		this->a->a = tmp_a;
+		this->a->b = tmp_b;
+		this->b->a = new Oper(*tmp_a);
+		this->b->b = new Oper(*tmp_b);
+		this->a->op = And;
+		this->b->op = And;
+		this->a->neg = false;
+		this->b->neg = false;
+		if (this->op == Xor) /* AB^ <=> A!B&AB!&| */
+		{
+			this->a->b->neg ^= 1;
+			this->b->a->neg ^= 1;
+		}
+		else if (this->op == Equal) /* AB= <=> AB&A!B!&| */
+		{
+			this->a->a->neg ^= 1;
+			this->a->b->neg ^= 1;
+		}
+		this->op = Or;
+
+		this->a->normal_form();
+		this->b->normal_form();
+	}
+
+	/* shift all operators to And, must be normal form (only And and OR) */
+	void	conjunctive_form(void)
+	{
+		Oper	*tmp_a;
+		Oper	*tmp_b;
+		std::string	str;
+
+		if (this->op == Letter)
+			return ;
+		if (this->op == And || this->op == Or)
+		{
+			this->a->normal_form();
+			this->b->normal_form();
+			return ;
+		}
+		if (this->op == Imply) /* AB> <=> A!B^ */
+		{
+			this->op = Or;
+			this->b->neg ^= 1;
+			this->a->normal_form();
+			this->b->normal_form();
+			return ;
+		}
+
+		tmp_a = new Oper(*this->a);
+		tmp_b = new Oper(*this->b);
+		this->a->a = tmp_a;
+		this->a->b = tmp_b;
+		this->b->a = new Oper(*tmp_a);
+		this->b->b = new Oper(*tmp_b);
+		this->a->op = And;
+		this->b->op = And;
+		this->a->neg = false;
+		this->b->neg = false;
+		if (this->op == Xor) /* AB^ <=> A!B&AB!&| */
+		{
+			this->a->b->neg ^= 1;
+			this->b->a->neg ^= 1;
+		}
+		else if (this->op == Equal) /* AB= <=> AB&A!B!&| */
+		{
+			this->a->a->neg ^= 1;
+			this->a->b->neg ^= 1;
+		}
+		this->op = Or;
+
+		this->a->normal_form();
+		this->b->normal_form();
+	}
+
+	/* push NOT operators to letters */
+	void	push_not(void)
+	{
+		if (this->op == Letter)
+			return ;
+		if (this->neg)
+		{
+			this->neg = false;
+			this->a->neg ^= 1;
+			this->b->neg ^= 1;
+			if (this->op == Or)
+				this->op = And;
+			else
+				this->op = Or;
+		}
+		this->a->push_not();
+		this->b->push_not();
 	}
 };
 
@@ -388,8 +497,10 @@ void	print_Node(const Oper &node, unsigned tab)
 	for (unsigned i = 0; i < tab; ++i)
 		std::cout << ' ';
 
+	if (node.neg)
+		std::cout << '!';
 	if (node.op == Letter)
-		std::cout << node.letter << (node.neg ? "!" : "") << '\n';
+		std::cout << node.letter << '\n';
 	else
 	{
 		if (node.op == And) std::cout << '&';
@@ -400,6 +511,24 @@ void	print_Node(const Oper &node, unsigned tab)
 		std::cout << '\n';
 		print_Node(*node.a, tab + 2);
 		print_Node(*node.b, tab + 2);
+	}
+}
+
+void	string_Node(const Oper &node, std::string &str)
+{
+	if (node.neg)
+		str.insert(str.begin(), '!');
+	if (node.op == Letter)
+		str.insert(str.begin(), node.letter);
+	else
+	{
+		if (node.op == And) str.insert(str.begin(), '&');
+		if (node.op == Or) str.insert(str.begin(), '|');
+		if (node.op == Xor) str.insert(str.begin(), '^');
+		if (node.op == Equal) str.insert(str.begin(), '=');
+		if (node.op == Imply) str.insert(str.begin(), '>');
+		string_Node(*node.a, str);
+		string_Node(*node.b, str);
 	}
 }
 
@@ -415,9 +544,33 @@ std::string	negation_normal_form(std::string str)
 		str.push_back(res[i - 1]);
 
 	expr = new Oper(str);	/* construct tree */
-	std::cout << "Tree :\n";
-	print_Node(*expr, 0);
 
+	expr->normal_form();
+	expr->push_not();
+	res.clear();
+	string_Node(*expr, res);
+	return (res);
+}
+
+std::string	conjunctive_normal_form(std::string str)
+{
+	std::string	res;
+	Oper		*expr;
+
+	vars_in_eval(str);	/* caps all letters */
+	res = str;
+	str.clear();
+	for (unsigned i = res.size(); i > 0; --i)	/* invert the string */
+		str.push_back(res[i - 1]);
+
+	expr = new Oper(str);	/* construct tree */
+
+	expr->normal_form();
+	expr->conjunctive_form();
+	expr->push_not();
+	
+	res.clear();
+	string_Node(*expr, res);
 	return (res);
 }
 
