@@ -381,18 +381,18 @@ struct	Oper
 		Oper	*tmp_b;
 		std::string	str;
 
-		if (this->op == Letter || None)
+		if (this->op == Letter || this->op == None)
 			return ;
 		if (this->op != And && this->op != Or) /* Xor, Equal, Imply */
 		{
 			switch (this->op)
 			{
-				case (Imply) : /* AB> <=> A!B^ */
+				case (Imply) :	/* AB> <=> A!B^ */
 					this->op = Or;
 					this->b->neg ^= 1;
 					break ;
 				case (Xor) :
-				case (Equal) :
+				case (Equal) :	/* AB= <=> AB|A!B!|&  et  AB^ <=> AB!|A!B|& */
 					tmp_a = this->a;
 					tmp_b = this->b;
 					this->a = new Oper();
@@ -403,69 +403,14 @@ struct	Oper
 					this->b->op = Or;
 					this->b->a = new Oper(*tmp_a);
 					this->b->b = new Oper(*tmp_b);
-					if (this->op == Xor) /* AB^ <=> A!B&AB!&| */
-					{
-						this->a->b->neg ^= 1;
+					if (this->op == Xor)
 						this->b->a->neg ^= 1;
-					}
-					else if (this->op == Equal) /* AB= <=> AB&A!B!&| */
-					{
+					else if (this->op == Equal)
 						this->a->a->neg ^= 1;
-						this->a->b->neg ^= 1;
-					}
+					this->a->b->neg ^= 1;
 					this->op = And;
+				default : ;	/* pour les p*tains de warnings */
 			}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 		}
 		this->a->normal_form();
 		this->b->normal_form();
@@ -474,48 +419,41 @@ struct	Oper
 	/* move all And operators on top, must be normal form (only And and OR) */
 	void	conjunctive_form(void)
 	{
-		// Oper		*tmp_a;
-		// Oper		*tmp_b;
-		// Oper		*tmp_c;
-		// std::string	str;
+		Oper		*tmp_a;
+		Oper		*tmp_b;
+		Oper		*tmp_c;
+		std::string	str;
 
-		// if (this->op == Or && (this->a->op == And || this->b->op == And))
-		// {
-		// 	if (this->a->op == And)
-		// 	{
-		// 		tmp_a = this->a->a;
-		// 		tmp_b = this->a->b;
-		// 		tmp_c = this->b;
-		// 		this->a->op = Or;
-		// 		this->b = new Oper();
-		// 		this->b->op = Or;
-
-		// 		this->a->b = tmp_c;
-		// 		this->b->a = tmp_b;
-		// std::cout << "MARK" << std::endl;
-		// 		new Oper(*tmp_c);
-		// 		this->b->b = new Oper(*tmp_c);
-		// std::cout << "MARK" << std::endl;
-		// 	}
-		// 	else
-		// 	{
-		// 		tmp_a = this->b->a;
-		// 		tmp_b = this->b->b;
-		// 		tmp_c = this->a;
-		// 		this->b->op = Or;
-		// 		this->a = new Oper();
-		// 		this->a->op = Or;
-
-		// 		this->b->b = tmp_c;
-		// 		this->a->a = tmp_b;
-		// 		this->a->b = new Oper(*tmp_c);
-		// 	}
-		// 	this->op = And;
-		// }
-		// if (this->op == Letter)
-		// 	return ;
-		// this->a->conjunctive_form();
-		// this->b->conjunctive_form();
+		if (this->op == Letter || this->op == None)
+			return ;
+		if (this->op == Or && (this->a->op == And || this->b->op == And))
+		{
+			if (this->a->op == And)
+			{
+				tmp_a = this->a->a;
+				tmp_b = this->a->b;
+				tmp_c = this->b;
+				this->a->op = Or;
+				this->b = new Oper();
+				this->b->op = Or;
+			}
+			if (this->b->op == And)
+			{
+				tmp_a = this->b->a;
+				tmp_b = this->b->b;
+				tmp_c = this->a;
+				this->a = new Oper();
+				this->a->op = Or;
+				this->b->op = Or;
+			}
+			this->op = And;
+			this->a->a = tmp_a;
+			this->a->b = tmp_c;
+			this->b->a = tmp_b;
+			this->b->b = new Oper(*tmp_c);
+		}
+		this->a->conjunctive_form();
+		this->b->conjunctive_form();
 	}
 
 	/* push NOT operators to letters, must be in normal form */
@@ -590,9 +528,7 @@ std::string	negation_normal_form(std::string str)
 	str.clear();
 	for (unsigned i = res.size(); i > 0; --i)	/* invert the string */
 		str.push_back(res[i - 1]);
-
 	expr = new Oper(str);	/* construct tree */
-
 	expr->normal_form();
 	expr->push_not();
 	res.clear();
@@ -611,13 +547,10 @@ std::string	conjunctive_normal_form(std::string str)
 	str.clear();
 	for (unsigned i = res.size(); i > 0; --i)	/* invert the string */
 		str.push_back(res[i - 1]);
-
 	expr = new Oper(str);	/* construct tree */
-
-	// expr->normal_form();
+	expr->normal_form();
 	expr->push_not();
 	expr->conjunctive_form();
-	
 	res.clear();
 	string_Node(*expr, res);
 	delete expr;
