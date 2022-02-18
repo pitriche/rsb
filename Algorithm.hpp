@@ -116,6 +116,8 @@ T	multiplier(T n1, T n2)
 	return (res);
 }
 
+/*	le gray code s'obtiens en faisant un Xor binaire de chaque bit avec le bit
+	directement a sa gauche */
 template <typename T>
 T	gray_code(T n) { return (n ^ (n >> 1)); }
 
@@ -261,43 +263,6 @@ bool	sat(std::string str)
 	}
 	return (false);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* push not operators to the basic operands */
-
-
-
-
 
 /* ########################################################################## */
 /* #####################	Expressions refining		##################### */
@@ -476,7 +441,7 @@ struct	Oper
 	}
 };
 
-
+/* for debug only */
 void	print_Node(const Oper &node, unsigned tab)
 {
 	for (unsigned i = 0; i < tab; ++i)
@@ -556,43 +521,6 @@ std::string	conjunctive_normal_form(std::string str)
 	delete expr;
 	return (res);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /* ########################################################################## */
 /* #####################		Set Expression			##################### */

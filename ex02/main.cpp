@@ -14,3 +14,14 @@ int	main()
 	std::cout << "8 gray code -> " << gray_code(8) << std::endl;
 	return (0);
 }
+
+/*
+0001
+0011
+0010
+0110
+0111
+0101
+0100
+1100
+*/
