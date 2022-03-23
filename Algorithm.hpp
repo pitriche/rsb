@@ -159,7 +159,7 @@ bool	eval_formula(const std::string &str)
 			case '|' : stk.push(pop(stk) | pop(stk)); break;
 			case '=' : stk.push(pop(stk) == pop(stk)); break;
 			case '^' : stk.push(pop(stk) ^ pop(stk)); break;
-			case '>' : stk.push(!pop(stk) | pop(stk)); break;
+			case '>' : stk.push(pop(stk) | !pop(stk)); break; /* inverted, because pop */
 
 			default : throw std::logic_error("Invalid character");
 		}
@@ -169,26 +169,36 @@ bool	eval_formula(const std::string &str)
 /* initial parsing phase, caps all letters */
 unsigned	vars_in_eval(std::string &str)
 {
-	unsigned			tmp;
-	unsigned			variables;
+	std::array<bool, 26>	present;
+	unsigned				vars;
+	bool					end;
 
-	variables = 0;
+	for (bool &b : present)
+		b = false;
 	for (char &c : str)
+	{
+		c = toupper(c);
 		if (isalpha(c))
-		{
-			c = toupper(c);
-			tmp = (unsigned)(c - 'A');
-			if (tmp > variables)
-				throw std::logic_error("Invalid letter order");
-			else if (tmp == variables)
-				++variables;
-		}
+			present[toupper(c) - 'A'] = true;
 		else if (c != '!' && c != '&' && c != '|' && c != '=' && c != '^' &&
 			c != '>')
 			throw std::logic_error("Invalid character");
-	if (variables == 0)
-		throw std::logic_error("Invalid expression");
-	return (variables);
+	}
+
+	vars = 0;
+	end = false;
+	for (const bool &b : present)
+	{
+		if (b && !end)
+			++vars;
+		if (b && end)
+			throw std::logic_error("Invalid letter order");
+		if (!b && !end)
+			end = true;
+	}
+	if (vars == 0)
+		throw std::logic_error("No letters in expression");
+	return (vars);
 }
 
 void	print_truth_table(std::string str)
@@ -225,7 +235,7 @@ void	print_truth_table(std::string str)
 				case '|' : stk.push(pop(stk) | pop(stk)); break;
 				case '=' : stk.push(pop(stk) == pop(stk)); break;
 				case '^' : stk.push(pop(stk) ^ pop(stk)); break;
-				case '>' : stk.push(!pop(stk) | pop(stk)); break;
+				case '>' : stk.push(pop(stk) | !pop(stk)); break; /* inverted, because pop */
 			}
 		std::cout << pop(stk) << " |" << std::endl;
 		while (stk.size() > 0)
@@ -254,7 +264,7 @@ bool	sat(std::string str)
 				case '|' : stk.push(pop(stk) | pop(stk)); break;
 				case '=' : stk.push(pop(stk) == pop(stk)); break;
 				case '^' : stk.push(pop(stk) ^ pop(stk)); break;
-				case '>' : stk.push(!pop(stk) | pop(stk)); break;
+				case '>' : stk.push(pop(stk) | !pop(stk)); break; /* also inverted, because pop */
 			}
 		if (pop(stk))
 			return (true);
@@ -369,9 +379,9 @@ struct	Oper
 					this->b->a = new Oper(*tmp_a);
 					this->b->b = new Oper(*tmp_b);
 					if (this->op == Xor)
-						this->b->a->neg ^= 1;
-					else if (this->op == Equal)
 						this->a->a->neg ^= 1;
+					else if (this->op == Equal)
+						this->b->a->neg ^= 1;
 					this->a->b->neg ^= 1;
 					this->op = And;
 				default : ;	/* pour les p*tains de warnings */
@@ -419,6 +429,8 @@ struct	Oper
 		}
 		this->a->conjunctive_form();
 		this->b->conjunctive_form();
+		if (this->op == Or && (this->a->op == And || this->b->op == And))
+			this->conjunctive_form();
 	}
 
 	/* push NOT operators to letters, must be in normal form */
@@ -517,6 +529,7 @@ std::string	conjunctive_normal_form(std::string str)
 	expr->push_not();
 	expr->conjunctive_form();
 	res.clear();
+	// print_Node(*expr, 0);	/* print tree */
 	string_Node(*expr, res);
 	delete expr;
 	return (res);
@@ -598,10 +611,10 @@ std::vector<int>	set_eq(const std::vector<int> &set1,
 	return (set_or(set_and(set1, set2), not12));
 }
 
-/* material condition */
+/* material condition, REVERSED because of pop */
 std::vector<int>	set_imply(const std::vector<int> &set1,
 	const std::vector<int> &set2, const std::vector<int> &superset)
-{ return (set_or(set_not(set1, superset), set2)); }
+{ return (set_or(set1, set_not(set2, superset))); }
 
 /* ########################################################################## */
 
@@ -616,8 +629,8 @@ std::vector<int>	eval_set(std::string str,
 	set_nb = vars_in_eval(str);
 	if (set_nb > sets.size())
 		throw std::logic_error("Mismatched set and expression");
-	for (unsigned int i = 0; i < set_nb; ++i)
-		superset = set_or(superset, sets[i]);
+	for (const std::vector<int> &set : sets)
+		superset = set_or(superset, set);
 	for (char c : str)
 		switch (c)
 		{

@@ -27,8 +27,6 @@ int	main()
 	tmp = "AB>";
 	std::cout << tmp << std::endl << negation_normal_form(tmp) << "\n\n";
 
-
-
 	tmp = "AB&!";
 	std::cout << tmp << std::endl << negation_normal_form(tmp) << "\n\n";
 	tmp = "AB|!";

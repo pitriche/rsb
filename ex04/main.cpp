@@ -3,27 +3,31 @@
 
 int	main()
 {
-	std::cout << "ab&" << std::endl;
-	print_truth_table("ab&");
-	std::cout << std::endl << "AB|" << std::endl;
-	print_truth_table("AB|");
-	std::cout << std::endl << "AB>" << std::endl;
-	print_truth_table("AB>");
+	std::string str;
 
-	std::cout << std::endl << "AB|CD|=" << std::endl;
-	print_truth_table("AB|CD|=");
-	std::cout << std::endl << "aBcD|&=" << std::endl;
-	print_truth_table("aBcD|&=");
-	std::cout << std::endl << "ABC>!^" << std::endl;
-	print_truth_table("ABC>!^");
-	std::cout << std::endl << "ABB&|" << std::endl;
-	print_truth_table("ABB&|");
+	std::cout << (str = "ab&") << std::endl;
+	print_truth_table(str);
+	std::cout << std::endl << (str = "AB|") << std::endl;
+	print_truth_table(str);
+	std::cout << std::endl << (str = "AB>") << std::endl;
+	print_truth_table(str);
+	std::cout << std::endl << (str = "A!B|") << std::endl;
+	print_truth_table(str);
 
-	std::cout << std::endl << "AA&BB|^" << std::endl;
-	print_truth_table("AA&BB|^");
-	std::cout << std::endl << "AAAA&|>" << std::endl;
-	print_truth_table("AAAA&|>");
-	std::cout << std::endl << "AB&C|" << std::endl;
-	print_truth_table("AB&C|");
+	std::cout << std::endl << (str = "AB|CD|=") << std::endl;
+	print_truth_table(str);
+	std::cout << std::endl << (str = "aBcD|&=") << std::endl;
+	print_truth_table(str);
+	std::cout << std::endl << (str = "ABC>!^") << std::endl;
+	print_truth_table(str);
+	std::cout << std::endl << (str = "ABB&|") << std::endl;
+	print_truth_table(str);
+
+	std::cout << std::endl << (str = "AA&BB|^") << std::endl;
+	print_truth_table(str);
+	std::cout << std::endl << (str = "AAAA&|>") << std::endl;
+	print_truth_table(str);
+	std::cout << std::endl << (str = "AB&C|") << std::endl;
+	print_truth_table(str);
 	return (0);
 }
